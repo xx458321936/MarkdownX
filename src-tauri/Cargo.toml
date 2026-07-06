@@ -1,0 +1,28 @@
+[package]
+name = "markdownx"
+version = "0.1.0"
+description = "MarkFlow - Local-first Markdown Editor"
+authors = ["MarkdownX"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "markdownx_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+notify = "6"
+notify-debouncer-mini = "0.4"
+walkdir = "2"
+tokio = { version = "1", features = ["full"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
