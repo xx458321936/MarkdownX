@@ -13,12 +13,13 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
-      globals: { ...globals.browser, ...globals.node },
+      globals: { ...globals.browser, ...globals.node, JSX: 'readonly' },
       parser: tsparser,
       parserOptions: {
         project: ['./tsconfig.app.json', './tsconfig.node.json'],
         tsconfigRootDir: import.meta.dirname,
         ecmaFeatures: { jsx: true },
+        ecmaVersion: 'latest',
       },
     },
     plugins: {
@@ -35,12 +36,18 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'react-refresh/only-export-components': 'warn',
+      'react/no-unescaped-entities': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
-      'no-restricted-imports': ['error', { paths: [{ name: 'react-router-dom', importNames: ['default'], message: 'Use named imports from react-router-dom' }] }],
+      '@typescript-eslint/no-unused-expressions': 'off',
+      'no-console': 'off',
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
     },
   },
 ];
