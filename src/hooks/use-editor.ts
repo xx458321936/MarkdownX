@@ -7,7 +7,43 @@ import {
   removeBlockCommand,
   updateBlockTextCommand,
   changeBlockTypeCommand,
+  replaceDocumentCommand,
 } from '@/services/command-service';
+import { parseInlineText } from '@/services/markdown-service';
+
+interface TriggerMatch {
+  prefix: string;
+  type: BlockType;
+  patch?: Partial<Block>;
+  nextPrefix?: string;
+}
+
+const BLOCK_TRIGGERS: TriggerMatch[] = [
+  { prefix: '#', type: 'heading', patch: { level: 1 } },
+  { prefix: '##', type: 'heading', patch: { level: 2 } },
+  { prefix: '###', type: 'heading', patch: { level: 3 } },
+  { prefix: '####', type: 'heading', patch: { level: 4 } },
+  { prefix: '#####', type: 'heading', patch: { level: 5 } },
+  { prefix: '######', type: 'heading', patch: { level: 6 } },
+  { prefix: '>', type: 'quote' },
+  { prefix: '-', type: 'bullet-list' },
+  { prefix: '*', type: 'bullet-list' },
+  { prefix: '1.', type: 'ordered-list' },
+  { prefix: '```', type: 'code-block' },
+  { prefix: '---', type: 'horizontal-rule', nextPrefix: '' },
+];
+
+const detectBlockTrigger = (text: string): TriggerMatch | null => {
+  let best: TriggerMatch | null = null;
+  for (const trigger of BLOCK_TRIGGERS) {
+    if (text === trigger.prefix || text.startsWith(trigger.prefix + ' ')) {
+      if (!best || trigger.prefix.length > best.prefix.length) {
+        best = trigger;
+      }
+    }
+  }
+  return best;
+};
 
 export function useEditor(block: Block): {
   isActive: boolean;
@@ -58,6 +94,15 @@ export function useEditor(block: Block): {
     sel.addRange(range);
   };
 
+  const focusBlock = (id: string, offset?: number): void => {
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${id}"]`);
+    if (!el) return;
+    el.focus();
+    if (offset !== undefined) {
+      requestAnimationFrame(() => setCaretOffset(el, offset));
+    }
+  };
+
   const commitText = (text: string, prevText: string): void => {
     if (text === prevText) return;
     const cmd = updateBlockTextCommand(block.id, prevText, text);
@@ -71,10 +116,11 @@ export function useEditor(block: Block): {
     const text = el.innerText;
     const prev = block.text;
     if (text === prev) return;
+    const parsed = parseInlineText(text);
     useEditorStore.getState().setDocument({
       ...useEditorStore.getState().document,
       blocks: useEditorStore.getState().document.blocks.map((b) =>
-        b.id === block.id ? { ...b, text } : b,
+        b.id === block.id ? { ...b, text: parsed.text, marks: parsed.marks } : b,
       ),
     });
     useEditorStore.getState().markDirty();
@@ -90,13 +136,38 @@ export function useEditor(block: Block): {
     setIsActive(true);
   }, []);
 
-  const focusBlock = (id: string, offset?: number): void => {
-    const el = document.querySelector<HTMLElement>(`[data-block-id="${id}"]`);
-    if (!el) return;
-    el.focus();
-    if (offset !== undefined) {
-      requestAnimationFrame(() => setCaretOffset(el, offset));
+  const tryLiveBlockTrigger = (state: ReturnType<typeof useEditorStore.getState>, currentText: string): boolean => {
+    const trigger = detectBlockTrigger(currentText);
+    if (!trigger) return false;
+    const nextType = trigger.type;
+    const nextText = currentText.slice(trigger.prefix.length).replace(/^ /, '');
+    const prevBlock: Block = { ...block, text: currentText, marks: [] };
+    const nextBlock: Block = {
+      ...block,
+      type: nextType,
+      text: nextText,
+      marks: parseInlineText(nextText).marks,
+      ...(trigger.patch ?? {}),
+    };
+    const cmd = changeBlockTypeCommand(block.id, prevBlock, nextBlock);
+    pushCommand(cmd);
+    cmd.apply();
+    if (nextType === 'horizontal-rule') {
+      const newBlock: Block = {
+        id: generateId(),
+        type: 'paragraph',
+        text: '',
+        marks: [],
+      };
+      const cmd2 = insertBlockCommand({ blockId: block.id, position: 'after', block: newBlock });
+      pushCommand(cmd2);
+      cmd2.apply();
+      requestAnimationFrame(() => focusBlock(newBlock.id, 0));
+    } else {
+      requestAnimationFrame(() => focusBlock(block.id, 0));
     }
+    void state;
+    return true;
   };
 
   const handleKeyDown = useCallback(
@@ -112,9 +183,9 @@ export function useEditor(block: Block): {
       const handleEnter = (asShift: boolean): void => {
         e.preventDefault();
         if (!asShift) {
-          const newBlock = {
+          const newBlock: Block = {
             id: generateId(),
-            type: 'paragraph' as BlockType,
+            type: 'paragraph',
             text: '',
             marks: [],
           };
@@ -133,6 +204,14 @@ export function useEditor(block: Block): {
 
       if (e.key === 'Enter' && !e.shiftKey) return handleEnter(false);
       if (e.key === 'Enter' && e.shiftKey) return handleEnter(true);
+
+      if (e.key === ' ' || e.key === 'Spacebar') {
+        const text = state.document.blocks[idx]?.text ?? '';
+        if (tryLiveBlockTrigger(state, text)) {
+          e.preventDefault();
+          return;
+        }
+      }
 
       if (e.key === 'Backspace') {
         if (offset === 0 && block.text === '' && idx > 0) {
@@ -207,47 +286,6 @@ export function useEditor(block: Block): {
         useEditorStore.getState().markDirty();
         requestAnimationFrame(() => focusBlock(block.id, offset));
       }
-
-      if (block.text.length === 0) {
-        const mappings: Array<[string, BlockType]> = [
-          ['#', 'heading'],
-          ['>', 'quote'],
-          ['-', 'bullet-list'],
-          ['*', 'bullet-list'],
-          ['1.', 'ordered-list'],
-          ['```', 'code-block'],
-          ['---', 'horizontal-rule'],
-        ];
-        const map = mappings.find(([k]) => k === block.text);
-        if (map) {
-          const newType = map[1];
-          const patch =
-            newType === 'heading' ? { level: 1 } : newType === 'horizontal-rule' ? { text: '' } : {};
-          const cmd = changeBlockTypeCommand(block.id, block, {
-            ...block,
-            type: newType,
-            ...patch,
-            text: '',
-          });
-          pushCommand(cmd);
-          cmd.apply();
-          e.preventDefault();
-          if (newType === 'horizontal-rule') {
-            const newBlock = {
-              id: generateId(),
-              type: 'paragraph' as BlockType,
-              text: '',
-              marks: [],
-            };
-            const cmd2 = insertBlockCommand({ blockId: block.id, position: 'after', block: newBlock });
-            pushCommand(cmd2);
-            cmd2.apply();
-            requestAnimationFrame(() => focusBlock(newBlock.id, 0));
-          } else {
-            requestAnimationFrame(() => focusBlock(block.id, 0));
-          }
-        }
-      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [block, pushCommand],
@@ -260,7 +298,16 @@ export function useEditor(block: Block): {
       const el = e.currentTarget as HTMLElement;
       const offset = getCaretOffset(el);
       const newText = block.text.slice(0, offset) + text + block.text.slice(offset);
-      const cmd = updateBlockTextCommand(block.id, block.text, newText);
+      const parsed = parseInlineText(newText);
+      const cmd = replaceDocumentCommand(
+        useEditorStore.getState().document,
+        {
+          ...useEditorStore.getState().document,
+          blocks: useEditorStore.getState().document.blocks.map((b) =>
+            b.id === block.id ? { ...b, text: parsed.text, marks: parsed.marks } : b,
+          ),
+        },
+      );
       pushCommand(cmd);
       cmd.apply();
       requestAnimationFrame(() => focusBlock(block.id, offset + text.length));

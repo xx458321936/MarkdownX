@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Block } from '@/types';
 import { useEditor } from '@/hooks/use-editor';
+import { InlineRenderer } from '@/components/editor/InlineRenderer';
 
 interface Props {
   block: Block;
@@ -31,7 +32,15 @@ export function BlockView({ block }: Props): React.JSX.Element {
       onPaste={handlePaste}
       onFocus={handleFocus}
       data-active={isActive}
-    />
+    >
+      {block.text.length === 0 ? null : (
+        <InlineRenderer
+          text={block.text}
+          marks={block.marks}
+          baseKey={block.id}
+        />
+      )}
+    </div>
   );
 }
 
@@ -57,13 +66,13 @@ const renderClassName = (block: Block): string => {
     case 'code-block':
       return `${base} whitespace-pre-wrap rounded bg-border/40 p-3 font-mono text-sm`;
     case 'bullet-list':
-      return `${base} pl-5 before:mr-1 before:content-['•']`;
+      return `${base} relative pl-6 before:absolute before:left-1 before:content-['•']`;
     case 'ordered-list':
-      return `${base} pl-5 before:mr-1 before:content-['1.']`;
+      return `${base} relative pl-7 before:absolute before:left-1 before:content-['1.']`;
     case 'task-list':
       return `${base} flex items-center gap-2`;
     case 'horizontal-rule':
-      return 'h-px w-full bg-border';
+      return 'h-px w-full border-0 bg-border';
     default:
       return base;
   }

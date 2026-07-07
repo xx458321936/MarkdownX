@@ -68,6 +68,7 @@ body {
 .prose-block {
   outline: none;
   min-height: 1.5em;
+  position: relative;
 }
 
 .prose-block[data-empty='true']::before {
@@ -75,8 +76,6 @@ body {
   color: var(--color-fg-muted);
   pointer-events: none;
   position: absolute;
-}
-
-.prose-block {
-  position: relative;
+  left: 4px;
+  top: 2px;
 }

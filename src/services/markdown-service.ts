@@ -292,3 +292,42 @@ export const BLOCK_TYPES: BlockType[] = [
   'task-list',
   'horizontal-rule',
 ];
+
+interface MarkPattern {
+  type: InlineMark['type'];
+  regex: RegExp;
+}
+
+const INLINE_PATTERNS: MarkPattern[] = [
+  { type: 'bold', regex: /\*\*(.+?)\*\*/g },
+  { type: 'italic', regex: /(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g },
+  { type: 'strike', regex: /~~(.+?)~~/g },
+  { type: 'code', regex: /`([^`]+)`/g },
+];
+
+const LINK_REGEX = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+export function parseInlineText(text: string): { text: string; marks: InlineMark[] } {
+  if (!text) return { text, marks: [] };
+  const ranges: Array<{ start: number; end: number; mark: InlineMark }> = [];
+  for (const { type, regex } of INLINE_PATTERNS) {
+    regex.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(text)) !== null) {
+      const start = m.index + (m[0].length - m[1].length);
+      const end = start + m[1].length;
+      ranges.push({ start, end, mark: { type, start, end } });
+    }
+  }
+  LINK_REGEX.lastIndex = 0;
+  let lm: RegExpExecArray | null;
+  while ((lm = LINK_REGEX.exec(text)) !== null) {
+    const inner = lm[1] ?? '';
+    const start = lm.index + (lm[0].length - inner.length - (lm[2]?.length ?? 0) - 3);
+    const end = start + inner.length;
+    ranges.push({ start, end, mark: { type: 'link', start, end, href: lm[2] ?? '' } });
+  }
+  ranges.sort((a, b) => a.start - b.start || b.end - a.end);
+  const marks: InlineMark[] = ranges.map((r) => r.mark);
+  return { text, marks };
+}
