@@ -66,16 +66,72 @@ body {
 }
 
 .prose-block {
-  outline: none;
-  min-height: 1.5em;
   position: relative;
+  min-height: 1.5em;
 }
 
-.prose-block[data-empty='true']::before {
-  content: attr(data-placeholder);
-  color: var(--color-fg-muted);
+.rendered-layer {
+  position: relative;
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   pointer-events: none;
+  padding: 0.125rem 0.25rem;
+  color: var(--color-fg);
+  min-height: 1.5em;
+  font: inherit;
+}
+
+.rendered-layer .placeholder {
+  color: var(--color-fg-muted);
+}
+
+.edit-layer {
   position: absolute;
-  left: 4px;
-  top: 2px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  resize: none;
+  font: inherit;
+  color: transparent;
+  caret-color: var(--color-fg);
+  padding: 0.125rem 0.25rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+}
+
+.prose-block[data-block-type='bullet-list'] .rendered-layer {
+  padding-left: 1.5rem;
+}
+.prose-block[data-block-type='bullet-list'] .rendered-layer::before {
+  content: '•';
+  position: absolute;
+  left: 0.25rem;
+}
+.prose-block[data-block-type='ordered-list'] .rendered-layer {
+  padding-left: 2rem;
+}
+.prose-block[data-block-type='ordered-list'] .rendered-layer::before {
+  content: '1.';
+  position: absolute;
+  left: 0.25rem;
+}
+.prose-block[data-block-type='task-list'] .rendered-layer {
+  padding-left: 1.75rem;
+}
+.prose-block[data-block-type='task-list'] .rendered-layer::before {
+  content: '☐';
+  position: absolute;
+  left: 0.25rem;
+}
+.prose-block[data-block-type='horizontal-rule'] .edit-layer,
+.prose-block[data-block-type='horizontal-rule'] .rendered-layer {
+  display: none;
 }
