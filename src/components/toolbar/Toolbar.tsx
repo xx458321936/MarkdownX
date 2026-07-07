@@ -1,4 +1,5 @@
 import { useUIStore } from '@/store/ui-store';
+import { importMarkdownFile } from '@/services/import-service';
 
 export function Toolbar(): React.JSX.Element {
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
@@ -40,6 +41,14 @@ export function Toolbar(): React.JSX.Element {
         Redo
       </button>
       <div className="mx-2 h-5 w-px bg-border" />
+      <button
+        type="button"
+        className="rounded px-2 py-1 text-xs hover:bg-border/40"
+        onClick={() => void importMarkdownFile()}
+        title="Import a single .md file (no workspace required)"
+      >
+        Import
+      </button>
       <button
         type="button"
         className="rounded px-2 py-1 text-xs hover:bg-border/40"
