@@ -12,24 +12,78 @@ const toFileName = (path: string): string => {
 const confirmDiscardIfDirty = (): boolean => {
   const state = useEditorStore.getState();
   if (!state.isDirty) return true;
-  const ok = window.confirm(
-    'You have unsaved changes. Discard them and open the new file?',
+  return window.confirm('You have unsaved changes. Discard them and open the new file?');
+};
+
+const pickFileBrowser = (): Promise<File | null> =>
+  new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,.markdown,text/markdown,text/plain';
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    input.onchange = (): void => {
+      resolve(input.files?.[0] ?? null);
+    };
+    input.oncancel = (): void => resolve(null);
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 60_000);
+  });
+
+const loadFromBrowser = async (file: File): Promise<void> => {
+  const text = await file.text();
+  useEditorStore.getState().setContent(text);
+  useEditorStore.getState().setCurrentFile(file.name);
+  useEditorStore.getState().markSaved();
+  useUIStore.getState().pushToast({
+    message: `Opened ${file.name}`,
+    kind: 'success',
+    duration: 2000,
+  });
+};
+
+const loadFromTauri = async (path: string): Promise<void> => {
+  const content = await tauri.readFile(path);
+  useEditorStore.getState().setContent(content);
+  useEditorStore.getState().setCurrentFile(path);
+  useEditorStore.getState().markSaved();
+
+  const recent = useWorkspaceStore.getState().recent;
+  const filtered = recent.filter((r) => r.path !== path);
+  useWorkspaceStore.getState().setRecent(
+    [
+      { path, name: toFileName(path), openedAt: Date.now() },
+      ...filtered,
+    ].slice(0, 10),
   );
-  return ok;
+
+  useUIStore.getState().pushToast({
+    message: `Opened ${toFileName(path)}`,
+    kind: 'success',
+    duration: 2000,
+  });
 };
 
 export const importMarkdownFile = async (): Promise<void> => {
-  if (!isTauri()) {
-    useUIStore.getState().pushToast({
-      message: 'Import requires Tauri (use pnpm tauri dev)',
-      kind: 'warning',
-      duration: 3000,
-    });
-    return;
-  }
   if (!confirmDiscardIfDirty()) return;
 
-  let selected: string | string[] | null = null;
+  if (!isTauri()) {
+    const file = await pickFileBrowser();
+    if (!file) return;
+    try {
+      await loadFromBrowser(file);
+    } catch (err) {
+      useUIStore.getState().pushToast({
+        message: `Failed to read file: ${String(err)}`,
+        kind: 'error',
+        duration: 3000,
+      });
+    }
+    return;
+  }
+
+  let selected: string | string[] | null;
   try {
     selected = await open({
       multiple: false,
@@ -52,23 +106,7 @@ export const importMarkdownFile = async (): Promise<void> => {
   if (typeof selected !== 'string') return;
 
   try {
-    const content = await tauri.readFile(selected);
-    useEditorStore.getState().setContent(content);
-    useEditorStore.getState().setCurrentFile(selected);
-    useEditorStore.getState().markSaved();
-
-    const recent = useWorkspaceStore.getState().recent;
-    const filtered = recent.filter((r) => r.path !== selected);
-    useWorkspaceStore.getState().setRecent([
-      { path: selected, name: toFileName(selected), openedAt: Date.now() },
-      ...filtered,
-    ].slice(0, 10));
-
-    useUIStore.getState().pushToast({
-      message: `Opened ${toFileName(selected)}`,
-      kind: 'success',
-      duration: 2000,
-    });
+    await loadFromTauri(selected);
   } catch (err) {
     useUIStore.getState().pushToast({
       message: `Failed to open file: ${String(err)}`,
@@ -76,4 +114,24 @@ export const importMarkdownFile = async (): Promise<void> => {
       duration: 3000,
     });
   }
+};
+
+export const saveCurrentBrowser = (): void => {
+  const state = useEditorStore.getState();
+  const filename = state.currentFilePath ?? 'untitled.md';
+  const blob = new Blob([state.currentContent], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  state.markSaved();
+  useUIStore.getState().pushToast({
+    message: `Downloaded ${filename}`,
+    kind: 'success',
+    duration: 2000,
+  });
 };

@@ -44,6 +44,7 @@ export const scheduleSave = (): void => {
   const path = state.currentFilePath;
   if (!path || !isTauri()) return;
   if (!state.isDirty) return;
+  // No real file in browser mode: caller should use saveCurrentBrowser() instead.
   queue.set(path, { path, content: state.currentContent, queuedAt: Date.now() });
 
   const delay = useSettingStore.getState().settings.autoSaveDelay;

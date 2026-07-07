@@ -1,23 +1,38 @@
 import { useUIStore } from '@/store/ui-store';
-import { importMarkdownFile } from '@/services/import-service';
+import { useEditorStore } from '@/store/editor-store';
+import { importMarkdownFile, saveCurrentBrowser } from '@/services/import-service';
+import { flushNow } from '@/services/auto-save-service';
+import { isTauri } from '@/services/tauri';
 
 export function Toolbar(): React.JSX.Element {
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const isDirty = useEditorStore((s) => s.isDirty);
+  const currentFilePath = useEditorStore((s) => s.currentFilePath);
 
   const focusEditor = (): HTMLTextAreaElement | null =>
     document.querySelector<HTMLTextAreaElement>('textarea.source-pane');
 
-  const handleUndo = (): void => {
+  const runHistory = (cmd: 'undo' | 'redo'): void => {
     const ta = focusEditor();
-    ta?.focus();
-    document.execCommand('undo');
+    if (!ta) return;
+    ta.focus({ preventScroll: true });
+    // Defer so the browser registers the new active element before execCommand.
+    requestAnimationFrame(() => {
+      document.execCommand(cmd);
+    });
   };
-  const handleRedo = (): void => {
-    const ta = focusEditor();
-    ta?.focus();
-    document.execCommand('redo');
+
+  const handleUndo = (): void => runHistory('undo');
+  const handleRedo = (): void => runHistory('redo');
+
+  const handleSave = (): void => {
+    if (isTauri()) {
+      void flushNow();
+      return;
+    }
+    saveCurrentBrowser();
   };
 
   return (
@@ -48,6 +63,17 @@ export function Toolbar(): React.JSX.Element {
         title="Import a single .md file (no workspace required)"
       >
         Import
+      </button>
+      <button
+        type="button"
+        className={`rounded px-2 py-1 text-xs hover:bg-border/40 ${
+          isDirty ? 'text-accent' : ''
+        }`}
+        onClick={handleSave}
+        disabled={!currentFilePath}
+        title={isTauri() ? 'Save now' : 'Download current file as .md'}
+      >
+        {isTauri() ? 'Save' : 'Download'}
       </button>
       <button
         type="button"
