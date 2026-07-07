@@ -1,7 +1,6 @@
 import { useEditorStore } from '@/store/editor-store';
 import { useUIStore } from '@/store/ui-store';
 import { isTauri, tauri } from '@/services/tauri';
-import { markdownToDocument } from '@/services/markdown-service';
 
 export const openFile = async (path: string): Promise<void> => {
   try {
@@ -14,9 +13,9 @@ export const openFile = async (path: string): Promise<void> => {
       return;
     }
     const content = await tauri.readFile(path);
-    const doc = markdownToDocument(content, path);
-    useEditorStore.getState().setDocument(doc);
+    useEditorStore.getState().setContent(content);
     useEditorStore.getState().setCurrentFile(path);
+    useEditorStore.getState().markSaved();
   } catch (err) {
     useUIStore.getState().pushToast({
       message: `Open failed: ${String(err)}`,

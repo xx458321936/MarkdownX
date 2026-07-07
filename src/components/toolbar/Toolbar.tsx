@@ -1,27 +1,22 @@
-import { useEditorStore } from '@/store/editor-store';
 import { useUIStore } from '@/store/ui-store';
 
 export function Toolbar(): React.JSX.Element {
-  const undoStack = useEditorStore((s) => s.undoStack);
-  const redoStack = useEditorStore((s) => s.redoStack);
-  const popUndo = useEditorStore((s) => s.popUndo);
-  const popRedo = useEditorStore((s) => s.popRedo);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
 
-  const handleUndo = (): void => {
-    const cmd = popUndo();
-    if (cmd) {
-      cmd.revert();
-    }
-  };
+  const focusEditor = (): HTMLTextAreaElement | null =>
+    document.querySelector<HTMLTextAreaElement>('textarea.source-pane');
 
+  const handleUndo = (): void => {
+    const ta = focusEditor();
+    ta?.focus();
+    document.execCommand('undo');
+  };
   const handleRedo = (): void => {
-    const cmd = popRedo();
-    if (cmd) {
-      cmd.apply();
-    }
+    const ta = focusEditor();
+    ta?.focus();
+    document.execCommand('redo');
   };
 
   return (
@@ -30,8 +25,7 @@ export function Toolbar(): React.JSX.Element {
       <div className="mx-2 h-5 w-px bg-border" />
       <button
         type="button"
-        className="rounded px-2 py-1 text-xs hover:bg-border/40 disabled:opacity-40"
-        disabled={undoStack.length === 0}
+        className="rounded px-2 py-1 text-xs hover:bg-border/40"
         onClick={handleUndo}
         title="Undo (Ctrl+Z)"
       >
@@ -39,8 +33,7 @@ export function Toolbar(): React.JSX.Element {
       </button>
       <button
         type="button"
-        className="rounded px-2 py-1 text-xs hover:bg-border/40 disabled:opacity-40"
-        disabled={redoStack.length === 0}
+        className="rounded px-2 py-1 text-xs hover:bg-border/40"
         onClick={handleRedo}
         title="Redo (Ctrl+Y)"
       >

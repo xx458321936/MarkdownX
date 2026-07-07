@@ -6,6 +6,7 @@ interface UIState {
   showSearch: boolean;
   showSettings: boolean;
   showCommandPalette: boolean;
+  splitRatio: number;
   confirmDialog: {
     open: boolean;
     title: string;
@@ -20,6 +21,7 @@ interface UIState {
   setSearchOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;
+  setSplitRatio: (ratio: number) => void;
   showConfirm: (opts: {
     title: string;
     message: string;
@@ -38,6 +40,7 @@ export const useUIStore = create<UIState>((set) => ({
   showSearch: false,
   showSettings: false,
   showCommandPalette: false,
+  splitRatio: 0.5,
   confirmDialog: {
     open: false,
     title: '',
@@ -52,6 +55,7 @@ export const useUIStore = create<UIState>((set) => ({
   setSearchOpen: (showSearch) => set({ showSearch }),
   setSettingsOpen: (showSettings) => set({ showSettings }),
   setCommandPaletteOpen: (showCommandPalette) => set({ showCommandPalette }),
+  setSplitRatio: (splitRatio) => set({ splitRatio: Math.max(0.15, Math.min(0.85, splitRatio)) }),
   showConfirm: ({ title, message, onConfirm, onCancel, confirmText, cancelText, destructive }) =>
     set({
       confirmDialog: {

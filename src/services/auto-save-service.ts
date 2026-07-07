@@ -2,7 +2,6 @@ import { useEditorStore } from '@/store/editor-store';
 import { useSettingStore } from '@/store/setting-store';
 import { useUIStore } from '@/store/ui-store';
 import { isTauri, tauri } from '@/services/tauri';
-import { serializeDocument } from '@/services/editor-service';
 
 interface SaveEntry {
   path: string;
@@ -45,8 +44,7 @@ export const scheduleSave = (): void => {
   const path = state.currentFilePath;
   if (!path || !isTauri()) return;
   if (!state.isDirty) return;
-  const content = serializeDocument(state.document);
-  queue.set(path, { path, content, queuedAt: Date.now() });
+  queue.set(path, { path, content: state.currentContent, queuedAt: Date.now() });
 
   const delay = useSettingStore.getState().settings.autoSaveDelay;
   if (flushTimer) clearTimeout(flushTimer);

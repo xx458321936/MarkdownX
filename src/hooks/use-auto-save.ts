@@ -4,13 +4,13 @@ import { scheduleSave, flushNow } from '@/services/auto-save-service';
 
 export function useAutoSave(): void {
   const isDirty = useEditorStore((s) => s.isDirty);
-  const document = useEditorStore((s) => s.document);
+  const currentContent = useEditorStore((s) => s.currentContent);
 
   useEffect(() => {
     if (isDirty) {
       scheduleSave();
     }
-  }, [isDirty, document]);
+  }, [isDirty, currentContent]);
 
   useEffect(() => {
     const handler = (): void => {
